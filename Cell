@@ -1,0 +1,104 @@
+package org.example;
+
+import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.MatteBorder;
+import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.regex.Pattern;
+
+public class Cell extends JTextField {
+    private int rowIndex;
+    private int columnIndex;
+    private SudokuGame game;  // Referință către joc pentru acces la metodele de verificare
+    private SudokuGUI gui;  // Referință către GUI pentru actualizarea etichetelor
+
+    public Cell(int row, int col, SudokuGame game, SudokuGUI gui) {
+        super(2);
+        this.rowIndex = row;
+        this.columnIndex = col;
+        this.game = game;
+        this.gui = gui;
+
+        setFont(new Font("Monospaced", Font.BOLD, 20));
+        setHorizontalAlignment(JTextField.CENTER);
+        setBackground(Color.WHITE);
+        setEditable(true);
+
+        int top = (row % 3 == 0) ? 3 : 1;
+        int left = (col % 3 == 0) ? 3 : 1;
+        int bottom = (row % 3 == 2) ? 3 : 1;
+        int right = (col % 3 == 2) ? 3 : 1;
+
+        Border border = new MatteBorder(top, left, bottom, right, Color.BLACK);
+        setBorder(border);
+
+        addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                selectAll();
+            }
+        });
+
+        addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+                char ch = e.getKeyChar();
+                if (!Pattern.matches("[1-9]", String.valueOf(ch))) {
+                    e.consume();  // Doar numerele 1-9 sunt acceptate
+                }
+            }
+
+            public void keyReleased(KeyEvent e) {
+                if (!getText().isEmpty() && !game.checkMove(rowIndex, columnIndex, getText())) {
+                    setBackground(Color.RED);  // Marcați greșelile cu roșu
+                    game.incrementErrorCount();  // Incrementare contor erori
+                    gui.updateErrorLabel();  // Actualizare etichetă erori
+                    setText("X");  // Afișează "X" pentru mutările greșite
+                } else {
+                    setBackground(Color.WHITE);  // Resetare la fundal alb dacă este corect
+                    if (game.checkMove(rowIndex, columnIndex, getText())) {
+                        game.updateBoard(rowIndex, columnIndex, Integer.parseInt(getText()));
+                    }
+                }
+                highlightSameNumbers();
+                if (game.isComplete()) {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            gui.showCompletionMessage();
+                        }
+                    });
+                }
+            }
+        });
+
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                highlightSameNumbers();
+            }
+        });
+    }
+
+    public void updateCell() {
+        int value = game.getCell(rowIndex, columnIndex);
+        if (value != 0) {
+            setText(String.valueOf(value));
+            setEditable(false);
+        } else {
+            setText("");
+            setEditable(true);
+        }
+    }
+
+    private void highlightSameNumbers() {
+        String text = getText();
+        if (!text.isEmpty() && Pattern.matches("[1-9]", text)) {
+            gui.highlightCellsWithNumber(text);
+        }
+    }
+}
+
